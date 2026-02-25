@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 100% 99%; /* #fff9f9 */
+    --foreground: 0 0% 15%;
+
+    --card: 0 100% 99%; /* #fff9f9 */
+    --card-foreground: 0 0% 15%;
+
+    --popover: 0 100% 99%;
+    --popover-foreground: 0 0% 15%;
+
+    --primary: 5 100% 91%; /* #ffd6d2 */
+    --primary-foreground: 0 0% 15%;
+
+    --secondary: 5 30% 90%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 5 100% 91%;
+    --accent-foreground: 0 0% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 5 100% 91%;
+
+    --radius: 0.75rem;
+    
+    /* Custom tokens for theme */
+    --gold: 5 100% 91%;
+    --gold-light: 5 100% 95%;
+    --gold-dark: 5 80% 85%;
+    --green-dark: 0 0% 15%;
+    --green-mid: 0 0% 30%;
+    --green-accent: 5 100% 91%;
+    
+    /* Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(5 100% 91%) 0%, hsl(0 100% 99%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(0 100% 99% / 0.8) 0%, hsl(5 100% 95% / 0.8) 50%, hsl(0 100% 99% / 0.8) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 100% 99%) 0%, hsl(5 100% 98%) 100%);
+    
+    /* Shadows */
+    --shadow-gold: 0 4px 20px hsl(45 92% 55% / 0.3);
+    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-image: url('/nani-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+}

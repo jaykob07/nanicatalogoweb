@@ -38,7 +38,7 @@ export const Navbar = ({ isAdmin = false }: NavbarProps) => {
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img
-              src="/logo-nav-nani.png"
+              src="/nani-logo.png"
               alt="Logo"
               className="w-20 h-20 rounded-full object-cover"
             />

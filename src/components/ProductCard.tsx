@@ -51,7 +51,7 @@ export const ProductCard = ({
                     </div>
                 )}
                 <div className="absolute top-2 right-2 bg-primary/90 backdrop-blur-sm text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    ${price.toFixed(2)}
+                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price)}
                 </div>
             </div>
         ) : (
@@ -75,7 +75,7 @@ export const ProductCard = ({
                     </div>
                 )}
                 <div className="absolute top-2 right-2 bg-primary/90 backdrop-blur-sm text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    ${price.toFixed(2)}
+                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price)}
                 </div>
             </a>
         )}
@@ -85,7 +85,7 @@ export const ProductCard = ({
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-primary">Ref:</span> {reference}
           </p>
-          <p className="font-semibold text-yellow-400 text-balance text-card-foreground line-clamp-2">{description}</p>
+          <p className="font-semibold text-yellow-400 text-balance text-card-foreground line-clamp-none md:line-clamp-2">{description}</p>
           
         </div>
       </CardContent>

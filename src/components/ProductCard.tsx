@@ -5,7 +5,7 @@ import { Edit, Trash2 } from "lucide-react";
 
 const getWhatsAppUrl = (name: string, reference: string): string => {
   const message = encodeURIComponent(`Hola, estoy interesado en: ${name} (Ref: ${reference})`);
-  return `https://wa.me/573006092452?text=${message}`;
+  return `https://wa.me/573206893616?text=${message}`;
 };
 
 interface ProductCardProps {

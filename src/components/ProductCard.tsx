@@ -108,7 +108,7 @@ export const ProductCard = ({
               onClick={() => window.open(whatsappUrl, '_blank')}
             >
               <MessageCircle className="w-4 h-4 mr-2" />
-              Preguntar en WhatsApp
+              Consultar
             </Button>
           )}
         </CardFooter>

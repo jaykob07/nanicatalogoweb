@@ -27,12 +27,23 @@ const Index = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreProducts, setHasMoreProducts] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [totalProducts, setTotalProducts] = useState<number>(0);
   const { toast } = useToast();
 
   useEffect(() => {
     loadTags();
     checkAdminStatus();
+    fetchTotalProducts();
   }, []);
+
+  const fetchTotalProducts = async () => {
+    const { count, error } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true });
+    if (!error && count !== null) {
+      setTotalProducts(count);
+    }
+  };
 
   const checkAdminStatus = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -268,11 +279,19 @@ const Index = () => {
               </h2>
               {(!searchQuery && !activeTag) && (
                 <p className="text-sm font-medium text-amber-500 bg-amber-500/10 inline-block px-3 py-1 rounded-full mb-3">
-                  Mostrando los productos más recientes. Usa el buscador, las categorías o carga más resultados.
+                  Mostrando los {filteredProducts.length} productos más recientes de un total de {totalProducts}. Usa el buscador, las categorías o carga más resultados.
                 </p>
               )}
               <p className="text-muted-foreground">
-                {filteredProducts.length} {filteredProducts.length === 1 ? "producto" : "productos"} {searchQuery || activeTag ? "encontrados" : ""}
+                {searchQuery || activeTag ? (
+                  <>
+                    Mostrando {filteredProducts.length} {filteredProducts.length === 1 ? "producto" : "productos"} encontrados (total en catálogo: {totalProducts})
+                  </>
+                ) : (
+                  <>
+                    Mostrando {filteredProducts.length} de {totalProducts} productos
+                  </>
+                )}
               </p>
             </div>
 

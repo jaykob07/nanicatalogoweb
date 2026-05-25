@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
-import { Edit, Trash2, MessageCircle } from "lucide-react";
+import { Edit, Trash2, MessageCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const getWhatsAppUrl = (name: string, reference: string): string => {
   const message = encodeURIComponent(`Hola, estoy interesado en: ${name} (Ref: ${reference})`);
@@ -12,7 +13,7 @@ interface ProductCardProps {
   id: string;
   name: string;
   reference: string;
-  description: string;
+  description?: string;
   price: number;
   imageUrl?: string;
   isAdmin?: boolean;
@@ -24,7 +25,7 @@ export const ProductCard = ({
   id,
   name,
   reference,
-  description,
+  description = "",
   price,
   imageUrl,
   isAdmin = false,
@@ -33,7 +34,27 @@ export const ProductCard = ({
 }: ProductCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [localDescription, setLocalDescription] = useState(description);
+  const [loadingDesc, setLoadingDesc] = useState(false);
+
   const whatsappUrl = getWhatsAppUrl(name, reference);
+
+  const handleFetchDescription = async () => {
+    setLoadingDesc(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('description')
+        .eq('id', id)
+        .single();
+      if (data) setLocalDescription(data.description || "Sin descripción");
+      setIsExpanded(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingDesc(false);
+    }
+  };
 
   const handleImageClick = () => {
     if (imageUrl) {
@@ -52,6 +73,7 @@ export const ProductCard = ({
             <img
               src={imageUrl}
               alt={name}
+              loading="lazy"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             />
           ) : (
@@ -70,13 +92,26 @@ export const ProductCard = ({
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-primary">Ref:</span> {reference}
             </p>
-            <p
-              className={`font-semibold text-yellow-400 text-balance text-card-foreground cursor-pointer transition-all duration-200 ${isExpanded ? "line-clamp-none" : "line-clamp-2"}`}
-              onClick={() => setIsExpanded(!isExpanded)}
-              title={isExpanded ? "Ver menos" : "Ver más"}
-            >
-              {description}
-            </p>
+            {!localDescription ? (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="p-0 h-auto font-semibold text-yellow-400 hover:text-yellow-500 hover:bg-transparent justify-start"
+                onClick={handleFetchDescription}
+                disabled={loadingDesc}
+              >
+                {loadingDesc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {loadingDesc ? "Cargando..." : "Ver descripción"}
+              </Button>
+            ) : (
+              <p
+                className={`font-semibold text-yellow-400 text-balance text-card-foreground cursor-pointer transition-all duration-200 ${isExpanded ? "line-clamp-none" : "line-clamp-2"}`}
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? "Ver menos" : "Ver más"}
+              >
+                {localDescription}
+              </p>
+            )}
           </div>
         </CardContent>
 

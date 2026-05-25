@@ -92,6 +92,15 @@ export const ProductForm = ({ onSuccess, onCancel, initialData }: ProductFormPro
 
         if (error) throw error;
 
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          await supabase.from('audit_logs').insert({
+            user_email: session.user.email,
+            action: 'EDITAR',
+            product_name: productData.name
+          });
+        }
+
         toast({
           title: "Producto actualizado",
           description: "El producto se ha actualizado exitosamente",
@@ -103,6 +112,15 @@ export const ProductForm = ({ onSuccess, onCancel, initialData }: ProductFormPro
           .insert([productData]);
 
         if (error) throw error;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          await supabase.from('audit_logs').insert({
+            user_email: session.user.email,
+            action: 'CREAR',
+            product_name: productData.name
+          });
+        }
 
         toast({
           title: "Producto creado",

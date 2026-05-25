@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2 } from "lucide-react";
 import { Session } from "@supabase/supabase-js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 
@@ -24,12 +25,26 @@ interface Product {
   image_url?: string;
 }
 
+interface AuditLog {
+  id: string;
+  created_at: string;
+  user_email: string;
+  action: string;
+  product_name: string;
+}
+
+const PAGE_SIZE = 24;
+
 const Admin = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreProducts, setHasMoreProducts] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
@@ -40,17 +55,28 @@ const Admin = () => {
    * 🛠️ CORRECCIÓN CLAVE: Función de carga envuelta en useCallback
    * y manejando su propio estado 'loading'.
    */
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (page = 0, append = false, query = "") => {
     // 1. Inicia la carga aquí
-    setLoading(true);
+    append ? setLoadingMore(true) : setLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let productsQuery = supabase
         .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" });
+
+      if (query.trim()) {
+        productsQuery = productsQuery.or(`name.ilike.%${query}%,reference.ilike.%${query}%`);
+      }
+
+      const { data, error, count } = await productsQuery
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
-      setProducts(data || []);
+      setProducts((current) => (append ? [...current, ...(data || [])] : data || []));
+      setHasMoreProducts(count ? to + 1 < count : (data || []).length === PAGE_SIZE);
 
     } catch (error: any) {
       toast({
@@ -63,8 +89,25 @@ const Admin = () => {
     } finally {
       // 2. Finaliza la carga aquí
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [toast]); // Dependencias: solo 'toast' si lo usa
+  }, [toast]);
+
+  const loadAuditLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAuditLogs(data || []);
+    } catch (e) {
+      console.error("Error loading audit logs", e);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
 
   /**
    * 🛠️ CORRECCIÓN CLAVE: useEffect modificado
@@ -77,6 +120,7 @@ const Admin = () => {
         setIsAdmin(true);
         // Llama a la carga. loadProducts maneja el setLoading(false) al terminar.
         loadProducts();
+        loadAuditLogs();
       } else {
         // No hay sesión: redirigir al login y terminar la carga
         setIsAdmin(false);
@@ -99,7 +143,13 @@ const Admin = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, loadProducts]); // Agregamos loadProducts a las dependencias
+  }, [navigate, loadProducts, loadAuditLogs]); // Agregamos loadProducts a las dependencias
+
+  useEffect(() => {
+    if (session?.user) {
+      loadProducts(0, false, searchQuery);
+    }
+  }, [searchQuery, session?.user, loadProducts]);
 
   /**
    * Las funciones handleEdit y handleDelete se mantienen iguales
@@ -118,6 +168,7 @@ const Admin = () => {
     if (!deleteProductId) return;
 
     try {
+      const productToDelete = products.find(p => p.id === deleteProductId);
       const { error } = await supabase
         .from("products")
         .delete()
@@ -125,13 +176,22 @@ const Admin = () => {
 
       if (error) throw error;
 
+      if (productToDelete && session?.user?.email) {
+        await supabase.from('audit_logs').insert({
+          user_email: session.user.email,
+          action: 'ELIMINAR',
+          product_name: productToDelete.name
+        });
+        loadAuditLogs();
+      }
+
       toast({
         title: "Producto eliminado",
         description: "El producto se ha eliminado exitosamente",
       });
 
       // Refresca la lista de productos
-      loadProducts();
+      loadProducts(0, false, searchQuery);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -143,11 +203,18 @@ const Admin = () => {
     }
   };
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.reference.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products;
+
+  const loadMoreProducts = () => {
+    loadProducts(Math.floor(products.length / PAGE_SIZE), true, searchQuery);
+  };
+
+  const groupedLogs = auditLogs.reduce((acc, log) => {
+    const date = new Date(log.created_at).toLocaleDateString('es-ES');
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(log);
+    return acc;
+  }, {} as Record<string, AuditLog[]>);
 
   // --- Renderizado ---
 
@@ -169,20 +236,27 @@ const Admin = () => {
       <Navbar isAdmin={isAdmin} />
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Panel de Administración</h2>
-              <p className="text-muted-foreground text-sm">Gestiona el catálogo de productos</p>
+        <Tabs defaultValue="products" className="w-full">
+          <TabsList className="mb-6 bg-muted/50 border border-border">
+            <TabsTrigger value="products">Productos</TabsTrigger>
+            <TabsTrigger value="audit">Auditoría Diaria</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="products">
+            <div className="mb-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Panel de Administración</h2>
+                  <p className="text-muted-foreground text-sm">Gestiona el catálogo de productos</p>
+                </div>
+                {/* Botón de Nuevo Producto */}
+                <Button onClick={() => { setEditingProduct(null); setShowForm(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Producto
+                </Button>
+              </div>
+              <SearchBar value={searchQuery} onChange={setSearchQuery} />
             </div>
-            {/* Botón de Nuevo Producto */}
-            <Button onClick={() => { setEditingProduct(null); setShowForm(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Producto
-            </Button>
-          </div>
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => (
@@ -204,13 +278,61 @@ const Admin = () => {
           ))}
         </div>
 
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              {searchQuery ? "No se encontraron productos" : "No hay productos registrados"}
-            </p>
-          </div>
-        )}
+            {filteredProducts.length > 0 && hasMoreProducts && (
+              <div className="flex justify-center pt-10">
+                <Button onClick={loadMoreProducts} disabled={loadingMore} variant="outline" size="lg">
+                  {loadingMore && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {loadingMore ? "Cargando..." : "Cargar más"}
+                </Button>
+              </div>
+            )}
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  {searchQuery ? "No se encontraron productos" : "No hay productos registrados"}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <div className="bg-card rounded-lg border border-border p-6 shadow-sm">
+              <h3 className="text-lg font-bold mb-6">Registro de Actividad</h3>
+              {loadingLogs ? (
+                <div className="flex justify-center p-8"><Loader2 className="animate-spin w-8 h-8 text-primary"/></div>
+              ) : Object.keys(groupedLogs).length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No hay registros de auditoría aún.</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {Object.entries(groupedLogs).map(([date, logs]) => (
+                    <div key={date}>
+                      <h4 className="font-semibold text-sm bg-muted/50 inline-block px-3 py-1 rounded-full mb-4 border border-border">{date}</h4>
+                      <div className="space-y-3">
+                        {logs.map((log) => (
+                          <div key={log.id} className="flex justify-between items-center text-sm p-4 bg-background border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                            <div>
+                              <span className={`font-bold mr-3 ${log.action === 'CREAR' ? 'text-green-500' : log.action === 'EDITAR' ? 'text-yellow-500' : 'text-red-500'}`}>
+                                {log.action}
+                              </span>
+                              <span className="font-medium text-foreground">{log.product_name}</span>
+                            </div>
+                            <div className="text-muted-foreground text-xs flex flex-col items-end gap-1">
+                              <span className="bg-muted px-2 py-0.5 rounded-sm">{log.user_email}</span>
+                              <span>{new Date(log.created_at).toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Modal de Creación/Edición */}
@@ -226,7 +348,8 @@ const Admin = () => {
             onSuccess={() => {
               setShowForm(false);
               setEditingProduct(null);
-              loadProducts(); // Recarga la lista después de guardar
+              loadProducts(0, false, searchQuery); // Recarga la lista después de guardar
+              loadAuditLogs(); // Actualiza los logs para mostrar la creación/edición
             }}
             onCancel={() => {
               setShowForm(false);
@@ -258,4 +381,3 @@ const Admin = () => {
 };
 
 export default Admin;
-
